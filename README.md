@@ -29,7 +29,7 @@ EdgeGuard decouples telemetry detection from automation execution, ensuring that
 
 ```mermaid
 graph TD
-    subgraph Edge Layer ("Hybrid Edge Nodes")
+    subgraph Edge_Layer ["Hybrid Edge Nodes"]
         Agent["Edge Agent (Python 3.12 + psutil)"]
         Spool[("SQLite Spool (/var/lib/edgeguard/spool.db)")]
         Target["Host OS / Edge Services"]
@@ -39,7 +39,7 @@ graph TD
         Spool -->|Online replay| Agent
     end
 
-    subgraph Control Plane ("API & State Management")
+    subgraph Control_Plane ["API & State Management"]
         API["FastAPI REST Server (api/main.py)"]
         Auth["RBAC & Security Layer (api/auth.py)"]
         DB[("PostgreSQL 16 (Durable Store)")]
@@ -51,7 +51,7 @@ graph TD
         API -->|Enqueue Ingestion| Redis
     end
 
-    subgraph Worker & Analytics ("Predictive Engine")
+    subgraph Worker_Analytics ["Predictive Engine"]
         Worker["Celery / RQ Worker Process"]
         RuleEngine["Rule Engine (worker/rules)"]
         EWMA["EWMA Forecaster (predictive.py)"]
@@ -65,7 +65,7 @@ graph TD
         Worker -->|Publish Incident Event| Redis
     end
 
-    subgraph Remediation Engine ("Event-Driven Ansible")
+    subgraph Remediation_Engine ["Event-Driven Ansible"]
         EDA["EDA Runner (ansible-rulebook)"]
         Runner["Ansible Core Runner"]
         Registry["ALLOWED_PLAYBOOKS Registry"]
@@ -77,7 +77,7 @@ graph TD
         Runner -->|POST /v1/automation/jobs/result| API
     end
 
-    subgraph Observability & Operations
+    subgraph Observability_Operations ["Observability & Operations"]
         Web["React + TypeScript UI (web/src)"]
         Prom["Prometheus Exporter (/metrics)"]
         Grafana["Grafana Dashboards"]
