@@ -10,12 +10,13 @@ Red Hat Story: Keycloak IS the Red Hat build of Keycloak (formerly Red Hat SSO).
 Enterprise Red Hat customers mandate centralized OIDC/SSO rather than local user tables.
 """
 
-from typing import Annotated
 import os
+from typing import Annotated
+
 import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 from pydantic import BaseModel
 
 KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "http://localhost:8080")
