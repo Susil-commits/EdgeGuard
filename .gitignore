@@ -1,0 +1,37 @@
+# Environment & Configuration
+.env
+.env.local
+.vscode/
+
+# Python Virtual Environment & Caches
+.venv/
+venv/
+ENV/
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+htmlcov/
+.coverage
+coverage.xml
+
+# Databases & SQLite Spools
+*.db
+*.sqlite
+*.db-journal
+*.db-wal
+edgeguard_dev.db
+
+# Node.js & Frontend Build Outputs
+node_modules/
+web/node_modules/
+web/dist/
+web/build/
+
+# Logs & System Files
+*.log
+.DS_Store
+Thumbs.db

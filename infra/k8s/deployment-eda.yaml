@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edgeguard-eda
+  namespace: edgeguard
+  labels:
+    app: edgeguard-eda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edgeguard-eda
+  template:
+    metadata:
+      labels:
+        app: edgeguard-eda
+    spec:
+      containers:
+        - name: eda-runner
+          image: ghcr.io/edgeguard/eda:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+              name: webhook
+          envFrom:
+            - configMapRef:
+                name: edgeguard-config
+            - secretRef:
+                name: edgeguard-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eda-runner
+  namespace: edgeguard
+  labels:
+    app: edgeguard-eda
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: webhook
+  selector:
+    app: edgeguard-eda

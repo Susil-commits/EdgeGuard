@@ -1,0 +1,21 @@
+---
+# automation/playbooks/disk_cleanup.yml
+# Pre-emptive disk cleanup — triggered by predictive OR critical disk incidents.
+
+- name: Disk cleanup
+  hosts: "{{ target_node }}"
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: disk_cleanup
+
+  post_tasks:
+    - name: Check disk usage after cleanup
+      ansible.builtin.command: df -h /
+      register: df_output
+      changed_when: false
+
+    - name: Show disk usage
+      ansible.builtin.debug:
+        msg: "{{ df_output.stdout }}"

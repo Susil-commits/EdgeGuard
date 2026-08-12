@@ -1,0 +1,51 @@
+---
+# automation/playbooks/restart_service.yml
+# Idempotent service restart with pre/post health verification.
+# Variables (set by EDA extra_vars or manual job params):
+#   target_node: IP or hostname of the target edge node
+#   service_name: systemd service name to restart
+#   job_callback_url: optional EdgeGuard API callback URL
+
+- name: Restart inactive service
+  hosts: "{{ target_node }}"
+  gather_facts: false
+  become: true
+
+  vars:
+    service_name: "{{ service_name | default('') }}"
+
+  pre_tasks:
+    - name: Verify service name is set
+      ansible.builtin.fail:
+        msg: "service_name must be provided"
+      when: service_name == ""
+
+  roles:
+    - role: service_restart
+      vars:
+        restart_service_name: "{{ service_name }}"
+
+  post_tasks:
+    - name: Verify service is now active
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+      register: service_state
+
+    - name: Fail if service is still not active after restart
+      ansible.builtin.fail:
+        msg: "Service {{ service_name }} is still inactive after restart attempt"
+      when: service_state.status.ActiveState != "active"
+
+    - name: Report success back to EdgeGuard API
+      ansible.builtin.uri:
+        url: "{{ job_callback_url }}"
+        method: POST
+        body_format: json
+        body:
+          status: "success"
+          output: "Service {{ service_name }} restarted and verified active"
+          health_verified: true
+        headers:
+          Authorization: "Bearer {{ lookup('env', 'EDGEGUARD_SERVICE_TOKEN') }}"
+      when: job_callback_url | length > 0
+      ignore_errors: true

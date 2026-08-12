@@ -1,0 +1,22 @@
+---
+# tasks/main.yml — service_restart role
+# Idempotent systemd service restart.
+
+- name: Ensure service is enabled
+  ansible.builtin.systemd:
+    name: "{{ restart_service_name }}"
+    enabled: true
+    daemon_reload: true
+
+- name: Restart the service
+  ansible.builtin.systemd:
+    name: "{{ restart_service_name }}"
+    state: restarted
+
+- name: Wait for service to become active
+  ansible.builtin.systemd:
+    name: "{{ restart_service_name }}"
+  register: svc
+  until: svc.status.ActiveState == "active"
+  retries: 5
+  delay: 3

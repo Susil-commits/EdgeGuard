@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: edgeguard-api
+  namespace: edgeguard
+  labels:
+    app: edgeguard-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: edgeguard-api

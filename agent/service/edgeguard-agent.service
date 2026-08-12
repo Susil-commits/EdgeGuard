@@ -1,0 +1,26 @@
+[Unit]
+Description=EdgeGuard monitoring agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=edgeguard
+Group=edgeguard
+WorkingDirectory=/opt/edgeguard
+EnvironmentFile=/etc/edgeguard/agent.env
+ExecStart=/opt/edgeguard/venv/bin/python -m agent
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=edgeguard-agent
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/edgeguard
+
+[Install]
+WantedBy=multi-user.target

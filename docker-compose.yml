@@ -1,0 +1,124 @@
+services:
+  # ─── API ────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://edgeguard:edgeguard@db:5432/edgeguard
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-prod}
+      EDA_WEBHOOK_URL: http://eda-runner:5000
+      DB_ECHO: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ─── Worker ─────────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    command: rq worker --url redis://redis:6379/0 edgeguard
+    environment:
+      DATABASE_URL: postgresql+asyncpg://edgeguard:edgeguard@db:5432/edgeguard
+      REDIS_URL: redis://redis:6379/0
+      EDA_WEBHOOK_URL: http://eda-runner:5000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # ─── EDA Runner ─────────────────────────────────────────────────────────────
+  eda-runner:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.eda
+    command: >
+      ansible-rulebook
+      --rulebook eda/rulebooks/remediation.yml
+      -i eda/inventory/hosts.yml
+      --verbose
+    ports:
+      - "5000:5000"
+    environment:
+      EDGEGUARD_API_URL: http://api:8000
+      EDGEGUARD_SERVICE_TOKEN: ${EDGEGUARD_SERVICE_TOKEN:-dev-service-token}
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ─── Database ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: edgeguard
+      POSTGRES_PASSWORD: edgeguard
+      POSTGRES_DB: edgeguard
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edgeguard -d edgeguard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # ─── Prometheus ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheusdata:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+
+  # ─── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  prometheusdata:
+  grafanadata:

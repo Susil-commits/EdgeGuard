@@ -1,0 +1,35 @@
+---
+# tasks/main.yml — disk_cleanup role
+# Reclaims disk space: removes old /tmp files, vacuums systemd journal, purges package caches.
+
+- name: Remove /tmp files older than 7 days
+  ansible.builtin.find:
+    paths: /tmp
+    age: 7d
+    recurse: true
+  register: old_tmp_files
+
+- name: Delete old /tmp files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_tmp_files.files }}"
+  when: old_tmp_files.files | length > 0
+
+- name: Vacuum systemd journal (keep last 100MB)
+  ansible.builtin.command: journalctl --vacuum-size=100M
+  changed_when: true
+
+- name: Clean package cache (dnf/yum)
+  ansible.builtin.dnf:
+    autoremove: true
+    state: absent
+  when: ansible_pkg_mgr in ['dnf', 'yum']
+  ignore_errors: true
+
+- name: Clean package cache (apt)
+  ansible.builtin.apt:
+    autoclean: true
+    autoremove: true
+  when: ansible_pkg_mgr == 'apt'
+  ignore_errors: true

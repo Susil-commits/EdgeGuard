@@ -1,0 +1,50 @@
+# eda/rulebooks/remediation.yml
+# Real ansible-rulebook EDA rulebook — run with:
+#   ansible-rulebook --rulebook eda/rulebooks/remediation.yml -i eda/inventory/hosts.yml
+#
+# This is the event-driven automation layer. Detection lives in Python (worker/rules/).
+# Remediation decisions are declarative YAML here — new remediations = YAML edits, not code deploys.
+
+- name: EdgeGuard remediation
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    # --- Critical: inactive service → restart it ---
+    - name: restart inactive service
+      condition: event.severity == "critical" and event.rule == "service_inactive"
+      action:
+        run_playbook:
+          name: automation/playbooks/restart_service.yml
+          extra_vars:
+            target_node: "{{ event.node_id }}"
+            service_name: "{{ event.metadata.service_name }}"
+            job_callback_url: "{{ event.callback_url | default('') }}"
+
+    # --- Predictive: disk trend heading toward breach → pre-emptive cleanup ---
+    - name: predictive disk warning pre-emptive cleanup
+      condition: event.severity == "predictive" and event.rule == "disk_trend"
+      action:
+        run_playbook:
+          name: automation/playbooks/disk_cleanup.yml
+          extra_vars:
+            target_node: "{{ event.node_id }}"
+
+    # --- Critical: disk full → emergency cleanup ---
+    - name: critical disk full emergency cleanup
+      condition: event.severity == "critical" and event.rule == "disk_critical"
+      action:
+        run_playbook:
+          name: automation/playbooks/disk_cleanup.yml
+          extra_vars:
+            target_node: "{{ event.node_id }}"
+
+    # --- Catch-all: log unmatched critical events (do not auto-remediate) ---
+    - name: log unmatched critical event
+      condition: event.severity == "critical"
+      action:
+        debug:
+          msg: "Unmatched critical event for node {{ event.node_id }}, rule {{ event.rule }} — requires manual review"
