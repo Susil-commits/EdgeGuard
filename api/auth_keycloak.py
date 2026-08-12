@@ -26,7 +26,10 @@ CLIENT_ID = os.environ.get("KEYCLOAK_CLIENT_ID", "edgeguard-api")
 # Keycloak OIDC discovery & JWKS URL
 JWKS_URL = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/certs"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token"
+)
+
 
 class CurrentUser(BaseModel):
     id: str
@@ -34,7 +37,9 @@ class CurrentUser(BaseModel):
     username: str
     email: str | None = None
 
+
 _jwks_cache = None
+
 
 async def _get_jwks():
     global _jwks_cache
@@ -43,6 +48,7 @@ async def _get_jwks():
             resp = await client.get(JWKS_URL)
             _jwks_cache = resp.json()
     return _jwks_cache
+
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> CurrentUser:
     """

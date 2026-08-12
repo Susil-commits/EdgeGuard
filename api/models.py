@@ -34,6 +34,7 @@ def utcnow() -> datetime:
 # Nodes
 # ---------------------------------------------------------------------------
 
+
 class Node(Base):
     __tablename__ = "nodes"
 
@@ -55,6 +56,7 @@ class Node(Base):
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
 
 class Metric(Base):
     __tablename__ = "metrics"
@@ -81,6 +83,7 @@ class Metric(Base):
 # Incidents
 # ---------------------------------------------------------------------------
 
+
 class Incident(Base):
     __tablename__ = "incidents"
 
@@ -106,14 +109,13 @@ class Incident(Base):
         back_populates="incident", cascade="all, delete"
     )
 
-    __table_args__ = (
-        Index("ix_incidents_fingerprint_state", "fingerprint", "state"),
-    )
+    __table_args__ = (Index("ix_incidents_fingerprint_state", "fingerprint", "state"),)
 
 
 # ---------------------------------------------------------------------------
 # Automation Jobs
 # ---------------------------------------------------------------------------
+
 
 class AutomationJob(Base):
     __tablename__ = "automation_jobs"
@@ -140,6 +142,7 @@ class AutomationJob(Base):
 # Audit Events
 # ---------------------------------------------------------------------------
 
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 
@@ -158,6 +161,7 @@ class AuditEvent(Base):
 # ---------------------------------------------------------------------------
 # Users (local auth — swapped for Keycloak in Phase 13)
 # ---------------------------------------------------------------------------
+
 
 class User(Base):
     __tablename__ = "users"

@@ -25,7 +25,9 @@ async def list_incidents(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[CurrentUser, Depends(get_current_user)],
     state: str | None = Query(None, description="Filter by state: open | acknowledged | resolved"),
-    severity: str | None = Query(None, description="Filter by severity: predictive | warning | critical"),
+    severity: str | None = Query(
+        None, description="Filter by severity: predictive | warning | critical"
+    ),
     node_id: uuid.UUID | None = Query(None),
     limit: int = Query(100, le=500),
     offset: int = 0,

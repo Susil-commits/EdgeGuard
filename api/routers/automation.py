@@ -49,9 +49,7 @@ async def create_automation_job(
 
     # Validate incident exists if provided
     if body.incident_id:
-        inc_result = await db.execute(
-            select(Incident).where(Incident.id == body.incident_id)
-        )
+        inc_result = await db.execute(select(Incident).where(Incident.id == body.incident_id))
         if not inc_result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Incident not found")
 
@@ -139,9 +137,7 @@ async def record_job_result(
 
     # If health verified and job succeeded, auto-resolve the linked incident
     if body.health_verified and body.status == "success" and job.incident_id:
-        inc_result = await db.execute(
-            select(Incident).where(Incident.id == job.incident_id)
-        )
+        inc_result = await db.execute(select(Incident).where(Incident.id == job.incident_id))
         incident = inc_result.scalar_one_or_none()
         if incident and incident.state != "resolved":
             incident.state = "resolved"

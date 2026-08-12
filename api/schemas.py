@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # Nodes
 # ---------------------------------------------------------------------------
 
+
 class NodeRegisterRequest(BaseModel):
     hostname: str = Field(..., min_length=1, max_length=255)
     site: str | None = None
@@ -40,6 +41,7 @@ class NodeRegisterResponse(BaseModel):
 # Telemetry
 # ---------------------------------------------------------------------------
 
+
 class MetricPoint(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     value: float
@@ -61,6 +63,7 @@ class TelemetryResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Incidents
 # ---------------------------------------------------------------------------
+
 
 class IncidentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -88,6 +91,7 @@ class ResolveResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Automation Jobs
 # ---------------------------------------------------------------------------
+
 
 class AutomationJobRequest(BaseModel):
     incident_id: uuid.UUID | None = None
@@ -129,6 +133,7 @@ class JobResultResponse(BaseModel):
 # Audit
 # ---------------------------------------------------------------------------
 
+
 class AuditEventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,6 +149,7 @@ class AuditEventResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
+
 
 class TokenResponse(BaseModel):
     access_token: str

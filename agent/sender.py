@@ -43,10 +43,7 @@ def send_metrics(metrics: list[MetricPoint]) -> bool:
     payload = {
         "node_id": NODE_ID,
         "timestamp": datetime.now(UTC).isoformat(),
-        "metrics": [
-            {"name": m.name, "value": m.value, "labels": m.labels}
-            for m in metrics
-        ],
+        "metrics": [{"name": m.name, "value": m.value, "labels": m.labels} for m in metrics],
         "event_id": event_id,
     }
 
@@ -101,12 +98,18 @@ def _post_with_retry(event_id: str, payload: dict, max_retries: int = MAX_RETRIE
                 else:
                     logger.warning(
                         "Unexpected status %s for event_id=%s (attempt %d/%d)",
-                        resp.status_code, event_id, attempt, max_retries,
+                        resp.status_code,
+                        event_id,
+                        attempt,
+                        max_retries,
                     )
         except httpx.RequestError as e:
             logger.warning(
                 "Network error sending event_id=%s (attempt %d/%d): %s",
-                event_id, attempt, max_retries, e,
+                event_id,
+                attempt,
+                max_retries,
+                e,
             )
 
         if attempt < max_retries:

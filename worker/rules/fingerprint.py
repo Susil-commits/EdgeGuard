@@ -30,9 +30,7 @@ def make_fingerprint(node_id: str, rule_id: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-async def upsert_incident(
-    db: AsyncSession, candidate: IncidentCandidate
-) -> Incident | None:
+async def upsert_incident(db: AsyncSession, candidate: IncidentCandidate) -> Incident | None:
     """
     Find an open incident with the same fingerprint and increment occurrence_count,
     or create a new one. Returns the incident if created or escalated, None if
@@ -75,6 +73,9 @@ async def upsert_incident(
     await db.flush()
     logger.info(
         "New incident created: node=%s rule=%s severity=%s id=%s",
-        candidate.node_id, candidate.rule_id, candidate.severity, incident.id,
+        candidate.node_id,
+        candidate.rule_id,
+        candidate.severity,
+        incident.id,
     )
     return incident

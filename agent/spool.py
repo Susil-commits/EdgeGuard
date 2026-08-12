@@ -81,10 +81,9 @@ def pending_count() -> int:
 
 def purge_sent(older_than_days: int = 7) -> int:
     """Remove sent events older than N days. Returns number of rows deleted."""
-    cutoff = datetime.now(UTC).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     from datetime import timedelta
+
     cutoff -= timedelta(days=older_than_days)
     with _connect() as conn:
         cur = conn.execute(

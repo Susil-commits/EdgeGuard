@@ -22,7 +22,9 @@ router = APIRouter()
 async def list_audit_events(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[CurrentUser, Depends(get_current_user)],
-    action: str | None = Query(None, description="Filter by action string, e.g. 'incident.resolve'"),
+    action: str | None = Query(
+        None, description="Filter by action string, e.g. 'incident.resolve'"
+    ),
     actor_id: str | None = Query(None),
     limit: int = Query(100, le=500),
     offset: int = 0,

@@ -94,7 +94,9 @@ def check(
         if project_breach(history, rule["threshold"], rule["horizon_minutes"]):
             logger.info(
                 "Predictive breach projected: node=%s metric=%s rule=%s",
-                node_id, metric_name, rule["rule_id"],
+                node_id,
+                metric_name,
+                rule["rule_id"],
             )
             return IncidentCandidate(
                 node_id=node_id,

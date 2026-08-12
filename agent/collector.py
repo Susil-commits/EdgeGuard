@@ -67,6 +67,7 @@ def _get_monitored_services() -> list[str]:
     Services to monitor. In production, load from agent config file.
     """
     import os
+
     services_env = os.environ.get("MONITORED_SERVICES", "sshd,chronyd")
     return [s.strip() for s in services_env.split(",") if s.strip()]
 
