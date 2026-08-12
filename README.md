@@ -12,14 +12,35 @@ EdgeGuard decouples telemetry detection from automation execution, ensuring that
    - Remediation trigger decisions are offloaded to an `ansible-rulebook` runner (`eda/rulebooks/remediation.yml`).
    - New remediation policies require zero application code deploys—simply update the YAML rulebook.
 2. **Predictive EWMA Trend Detection**:
-   - Uses Exponentially Weighted Moving Average (EWMA) with trend extrapolation ($\alpha = 0.3$) to forecast metric threshold breaches up to 6 hours in advance.
+   - Uses Exponentially Weighted Moving Average (EWMA) with linear trend extrapolation ($\alpha = 0.3$) to forecast metric threshold breaches up to 6 hours in advance.
    - Triggers `severity: predictive` incidents before disk fill, memory exhaustion, or service failure occurs.
 3. **Offline-First WAN Resilience**:
-   - Python 3.12 edge agent buffers telemetry in a local SQLite database (`/var/lib/edgeguard/spool.db`) during network outages.
+   - Python 3.12 edge agent buffers telemetry in a local SQLite database (`/var/lib/edgeguard/spool.db`) in WAL mode during network outages.
    - Automatically replays pending telemetry upon reconnect with zero duplicate rows via UUID `event_id` server-side idempotency.
 4. **Strict Security Model & Auditability**:
    - Enforces a server-side `ALLOWED_PLAYBOOKS` allow-list registry to prevent unauthorized command or playbook injection.
    - Multi-tenant RBAC (`viewer`, `operator`, `admin`) paired with an immutable `audit_events` ledger recording all human and automated actions.
+
+---
+
+## Technology Stack & Framework Matrix
+
+| Layer / Component | Technology | Version / Specification | Responsibilities & Value |
+|---|---|---|---|
+| **Control Plane API** | FastAPI / ASGI | Python 3.12 / FastAPI 0.115+ | High-throughput async REST API serving ingestion, RBAC, nodes, and job orchestration. |
+| **Data Validation & Contracts** | Pydantic | v2.10+ | Strict type checking, request body serialization, and automated OpenAPI spec generation. |
+| **Database ORM & Access** | SQLAlchemy | 2.0+ Async & Sync | Database abstraction layer managing PostgreSQL connection pooling and schemas. |
+| **Durable Database Store** | PostgreSQL | 16.x | Enterprise transactional storage for nodes, metrics, incidents, jobs, and audit events. |
+| **Task Queue & Event Bus** | Celery / RQ & Redis | Redis 7.x | Asynchronous background metric evaluation, trend forecasting, and Pub/Sub event distribution. |
+| **Edge Agent Collector** | Python / `psutil` | Python 3.12 / `psutil` 6.1 | Lightweight daemon polling host metrics (CPU, memory, disk, network) and systemd services. |
+| **Offline Spooling Database** | SQLite | 3.46+ (WAL mode) | Embedded transaction log (`spool.db`) buffering telemetry locally during WAN drops. |
+| **Event-Driven Automation** | Event-Driven Ansible | `ansible-rulebook` 1.1+ | Rulebook processing engine matching webhook incident events against declarative YAML rules. |
+| **Ansible Execution Engine** | Ansible Core | `ansible-runner` 2.4+ | Idempotent automation execution over SSH to remediate target edge systems. |
+| **Frontend Control Dashboard** | React + TypeScript | React 18.3 / TS 5.6 | Single-Page Application (SPA) built with Vite for fleet monitoring and manual triggers. |
+| **Styling & UI Components** | Vanilla CSS & Lucide | Modern CSS / Lucide Icons | Responsive glassmorphism interface with custom dark mode theme and dynamic indicators. |
+| **Security & Authentication** | OAuth2 / JWT & Keycloak | OIDC Standard / PyJWT | Dual-mode auth supporting local JWT signed tokens and enterprise Keycloak OIDC SSO. |
+| **Container & Orchestration** | Docker / K8s | Docker Engine 27+ / K8s | Containerized deployment blueprints with Kubernetes deployment, service, and ingress manifests. |
+| **Observability Integration** | Prometheus & Grafana | Prometheus v2 / Grafana | Native `/metrics` scrapable endpoint and pre-built Grafana operational dashboards. |
 
 ---
 
@@ -139,54 +160,60 @@ sequenceDiagram
 
 ---
 
-## 2. Micro-Component & Repository Directory Structure
+## 2. Repository Architecture & Directory Structure
 
 ```
 edgeguard/
-├── agent/
-│   ├── collector.py                  # Telemetry polling via psutil (CPU, memory, disk, network)
-│   ├── spool.py                      # SQLite WAL transaction engine for offline buffer
-│   ├── sender.py                     # HTTPS client with exponential backoff and jitter
+├── agent/                            # Lightweight Edge Collector Daemon
+│   ├── collector.py                  # Telemetry polling via psutil (CPU, memory, disk, network, systemd)
+│   ├── spool.py                      # SQLite WAL transaction engine for durable offline buffering
+│   ├── sender.py                     # HTTPS client with exponential backoff & jitter replay
 │   └── service/
-│       └── edgeguard-agent.service   # Systemd unit configuration
-├── api/
-│   ├── main.py                       # FastAPI initialization, CORS, routers, health probes
+│       └── edgeguard-agent.service   # Systemd unit configuration file
+├── api/                              # FastAPI Control Plane Server
+│   ├── main.py                       # Application init, CORS middleware, router mounts, health check
 │   ├── db.py                         # SQLAlchemy async engine & connection pool setup
-│   ├── models.py                     # PostgreSQL ORM schema definitions
+│   ├── models.py                     # PostgreSQL database schema definitions
 │   ├── schemas.py                    # Strict Pydantic v2 validation contracts
-│   ├── auth.py                       # JWT authentication, password hashing, and RBAC rules
+│   ├── auth.py                       # JWT auth, password hashing, and RBAC hierarchy enforcement
+│   ├── auth_keycloak.py              # Keycloak OpenID Connect (OIDC) integration provider
 │   └── routers/
-│       ├── nodes.py                  # Node registration & lifecycle endpoints
-│       ├── telemetry.py              # Ingestion pipeline endpoint with idempotency
-│       ├── incidents.py              # Incident query and manual resolution API
-│       ├── automation.py             # Playbook job execution & result callback API
-│       └── audit.py                  # Audit ledger query API
-├── worker/
-│   ├── tasks/ingest.py               # Batch insert raw telemetry to time-series tables
-│   ├── tasks/evaluate.py            # Async rule evaluation task entrypoint
-│   ├── rules/threshold.py            # Hard threshold checking logic
+│       ├── nodes.py                  # Node registration & heartbeat lifecycle management
+│       ├── telemetry.py              # Ingestion pipeline endpoint with event_id idempotency
+│       ├── incidents.py              # Incident management & manual resolution API
+│       ├── automation.py             # Playbook execution & job callback API
+│       └── audit.py                  # Immutable security audit log query API
+├── worker/                           # Asynchronous Evaluation Worker
+│   ├── tasks/ingest.py               # Batch metric ingestion tasks
+│   ├── tasks/evaluate.py            # Async rule evaluation entrypoint
+│   ├── rules/threshold.py            # Hard static threshold checking logic
 │   ├── rules/predictive.py           # EWMA trend forecaster & breach projector
-│   ├── rules/fingerprint.py          # Deterministic SHA-256 fingerprint generator
+│   ├── rules/fingerprint.py          # Deterministic SHA-256 fingerprint hash generator
 │   └── eventbus.py                   # Redis Pub/Sub message broker wrapper
-├── eda/
+├── eda/                              # Event-Driven Ansible (EDA) Layer
 │   ├── rulebooks/remediation.yml     # Event-Driven Ansible YAML policy rulebook
-│   └── inventory/hosts.yml           # Host inventory target mapping
-├── automation/
+│   └── inventory/hosts.yml           # Ansible inventory target mapping
+├── automation/                       # Automation Playbooks & Security Registries
 │   ├── ALLOWED_PLAYBOOKS.py          # Server-side security allow-list registry
-│   ├── playbooks/                    # Ansible playbooks (disk_cleanup, service_restart, etc.)
+│   ├── playbooks/                    # Ansible playbooks (disk_cleanup, restart_service, etc.)
 │   └── roles/                        # Modular Ansible remediation roles
-├── web/                              # React + TypeScript frontend dashboard
-│   └── src/pages/                    # Fleet, Incidents, Automation, and Audit views
-├── infra/                            # Infrastructure configurations
+├── web/                              # React + TypeScript Frontend Dashboard
+│   ├── src/pages/                    # Fleet, Incidents, Automation, and Audit views
+│   └── src/components/               # Glassmorphic UI components & navigation
+├── infra/                            # Infrastructure Deployment Blueprint
 │   ├── docker-compose.yml            # Complete container orchestration setup
-│   ├── k8s/                          # Deployment, ConfigMap, Secret & NetworkPolicy manifests
-│   └── grafana/                      # Exported Grafana visualization dashboards
-└── tests/                            # Comprehensive test suite (unit, integration, e2e)
+│   ├── docker-compose.keycloak.yml   # Enterprise Keycloak SSO stack configuration
+│   ├── k8s/                          # Kubernetes Deployment, Service, Secret & NetworkPolicy manifests
+│   └── grafana/                      # Pre-built Grafana operational visualization dashboards
+└── tests/                            # Comprehensive Test Suite
+    ├── unit/                         # Core algorithm & rule engine unit tests
+    ├── integration/                  # Database, Redis queue & API integration tests
+    └── e2e/                          # End-to-End drift detection & autocorrect tests
 ```
 
 ---
 
-## 3. Database Schema (PostgreSQL 16)
+## 3. Database Schemas (PostgreSQL 16)
 
 ```sql
 -- Nodes Registry Table
@@ -278,19 +305,19 @@ The predictive engine continuously calculates smoothed metric averages and extra
 
 To prevent incident duplication and database row bloat during high-frequency sampling:
 
-$$\text{Fingerprint} = \text{SHA256}(\text{node\_id} \mathbin{\Vert} \text{":"} \mathbin{\Vert} \text{rule\_id})$$
+$$\text{Fingerprint} = \text{SHA256}(\mathtt{node\_id} \mathbin{\Vert} \text{":"} \mathbin{\Vert} \mathtt{rule\_id})$$
 
 Enforced in PostgreSQL via a partial unique index on open state incidents (`WHERE state = 'open'`), forcing duplicate open breaches to update `occurrence_count` and `updated_at`.
 
 ---
 
-## 5. Security & Risk Mitigations Audit
+## 5. Security Guardrails & Threat Mitigations Audit
 
 | Risk / Failure Vector | Root Cause | System Mitigation & Guardrail |
 |---|---|---|
-| **Playbook Injection Attack** | Malicious HTTP body calling arbitrary scripts | Server-side validation against `ALLOWED_PLAYBOOKS` list (`api/routers/automation.py`). Returns `403 Forbidden` for unregistered playbooks. |
-| **WAN Disconnection Data Loss** | Edge node isolated from central API | Durable SQLite spool (`agent/spool.py`) buffers metrics locally in WAL mode until reconnection. |
-| **Replay Ingestion Duplication** | Agent retrying buffered metric batches | Server-side idempotency tracking client-side UUID `event_id` headers. |
+| **Playbook Injection Attack** | Malicious HTTP payload attempting execution of unauthorized scripts | Server-side validation against `ALLOWED_PLAYBOOKS` list (`api/routers/automation.py`). Returns `403 Forbidden` for unregistered playbooks. |
+| **WAN Disconnection Data Loss** | Edge node isolated from central API control plane | Durable SQLite spool (`agent/spool.py`) buffers metrics locally in WAL mode until network reconnection. |
+| **Replay Ingestion Duplication** | Agent retrying buffered metric batches upon reconnect | Server-side idempotency tracking client-side UUID `event_id` headers. |
 | **Flapping Alert Storms** | Metrics fluctuating rapidly around threshold limits | Partial unique index fingerprint deduplication aggregates recurring events into existing open incidents. |
 | **Remediation Loop Deadlock** | Automation playbook fails to resolve issue | Strict job limit (max 3 runs per incident). Escalates incident state to `escalated` if health re-checks fail. |
 
@@ -318,7 +345,7 @@ curl http://localhost:8000/health
 ### 6.2 Running Automated Test Suite
 
 ```bash
-# Run unit and integration tests
+# Run unit, integration, and E2E tests
 pytest tests/ -v
 ```
 
@@ -337,4 +364,4 @@ pytest tests/ -v
 | **Kubernetes Infrastructure Specs** | Built | `infra/k8s/` |
 | **Prometheus & Grafana Setup** | Built | `infra/grafana/`, FastAPI `/metrics` |
 | **React + TypeScript Control UI** | Built | `web/src/` |
-| **Keycloak OIDC Swap Support** | Designed | `api/auth.py` abstract dependency layer |
+| **Keycloak OIDC Swap Support** | Built | `api/auth_keycloak.py`, `infra/docker-compose.keycloak.yml` |

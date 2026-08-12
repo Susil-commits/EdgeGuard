@@ -62,7 +62,7 @@ $$EWMA_t = \alpha \cdot X_t + (1 - \alpha) \cdot EWMA_{t-1} \quad (\alpha = 0.3)
 $$\text{Projected Value } P = EWMA_t + (EWMA_t - EWMA_{t-1}) \times H_{minutes}$$
 
 ### Fingerprint Hashing Formula
-$$\text{Fingerprint} = \text{SHA256}(\text{node\_id} + \text{":"} + \text{rule\_id})$$
+$$\text{Fingerprint} = \text{SHA256}(\mathtt{node\_id} + \text{":"} + \mathtt{rule\_id})$$
 Enforced by DB Index: `CREATE UNIQUE INDEX ix_incidents_open_fingerprint ON incidents(fingerprint) WHERE state = 'open';`
 
 ---
